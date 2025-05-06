@@ -220,6 +220,12 @@ bayesOpt <- function(
 
   startT <- Sys.time()
 
+  # look for defaults that are literally the same symbol as the arg‐name
+  argNames <- names(formals(FUN))[names(formals(FUN)) == as.character(formals(FUN))]
+  for (argName in argNames) {
+    formals(FUN)[[argName]] <- get(argName)
+  }
+
   # Construct bayesOpt list
   optObj <- list()
   class(optObj) <- "bayesOpt"
