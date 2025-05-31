@@ -165,6 +165,7 @@ addIterations <- function(
       )
     )[[3]]
     if (verbose > 0) cat("       ",tm,"seconds\n")
+    tm_local_search = tm
 
     # Should we continue?
     if (otherHalting$minUtility > max(LocalOptims$gpUtility)) {
@@ -228,7 +229,7 @@ addIterations <- function(
 
       # Handle the Result.
         if (any(class(Result) %in% c("simpleError","error","condition"))) {
-          return(data.table(nextPars[get("iter"),], Elapsed = Elapsed[[3]],Score = NA, errorMessage = conditionMessage(Result)))
+          return(data.table(nextPars[get("iter"),], Elapsed = Elapsed[[3]], ElapsedLocalSearch = tm_local_search, Score = NA, errorMessage = conditionMessage(Result)))
         } else {
 
           if (any(lengths(Result) != 1)) {
@@ -242,9 +243,9 @@ addIterations <- function(
           }
 
           if (!is.numeric(Result$Score)) {
-            return(data.table(nextPars[get("iter"),], Elapsed = Elapsed[[3]], as.data.table(Result),errorMessage = "Score returned from FUN was not numeric."))
+            return(data.table(nextPars[get("iter"),], Elapsed = Elapsed[[3]], ElapsedLocalSearch = tm_local_search, as.data.table(Result),errorMessage = "Score returned from FUN was not numeric."))
           } else {
-            return(data.table(nextPars[get("iter"),], Elapsed = Elapsed[[3]], as.data.table(Result),errorMessage = NA))
+            return(data.table(nextPars[get("iter"),], Elapsed = Elapsed[[3]], ElapsedLocalSearch = tm_local_search, as.data.table(Result),errorMessage = NA))
           }
         }
 
