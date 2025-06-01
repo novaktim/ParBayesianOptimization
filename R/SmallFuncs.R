@@ -117,8 +117,10 @@ saveSoFar <- function(optObj,verbose) {
   if (!is.null(optObj$saveFile)) {
     tryCatch(
       {
-        suppressWarnings(saveRDS(optObj, file = optObj$saveFile))
-        if (verbose > 0) cat("  4) Saving Intermediary Results to:  \n    ",optObj$saveFile,"\n")
+        temp = optObj
+        temp$FUN = NULL
+        suppressWarnings(saveRDS(temp, file = temp$saveFile))
+        if (verbose > 0) cat("  4) Saving Intermediary Results to:  \n    ",temp$saveFile,"\n")
       }
       , error = function(e) {
         if (verbose > 0) cat(red("  4) Failed to save intermediary results. Please check file path.\n"))
