@@ -1,6 +1,6 @@
 context('errorHandling')
 
-testthat::test_that(
+test_that(
 
   "continue"
 

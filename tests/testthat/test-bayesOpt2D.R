@@ -1,4 +1,4 @@
-testthat::test_that(
+test_that(
 
   "2 Dimension"
 

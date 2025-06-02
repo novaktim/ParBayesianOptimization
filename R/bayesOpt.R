@@ -291,12 +291,27 @@ bayesOpt <- function(
   # Run initialization
   if (verbose > 0) cat("\nRunning initial scoring function",nrow(initGrid),"times in",Workers,"thread(s)...")
   sink(file = sinkFile)
+
+  optObj$initPars$scoreSummary = list()
+  listAndSave <- function(already, newRow) {
+    # already:    the accumulated result so far (a list of data.tables)
+    # newRow:     the one data.table returned by a freshly completed iteration
+    if(!is.null(already) && already$Iteration == 1) {
+      optObj$initPars$scoreSummary[[1]] <<- already
+    }
+    nextIdx <- newRow$Iteration
+    optObj$initPars$scoreSummary[[nextIdx]] <<- newRow
+    optObj$scoreSummary <<- rbindlist(optObj$initPars$scoreSummary, fill = TRUE)
+    saveSoFar(optObj, verbose = verbose)
+    NULL
+  }
+
   tm <- system.time(
     scoreSummary <- foreach(
         iter = 1:nrow(initGrid)
       , .options.multicore = list(preschedule=FALSE)
-      , .combine = list
-      , .multicombine = TRUE
+      , .combine = listAndSave
+      , .multicombine = FALSE
       , .inorder = FALSE
       , .errorhandling = 'pass'
       #, .packages ='data.table'
@@ -314,35 +329,34 @@ bayesOpt <- function(
       )
 
       # Make sure everything was returned in the correct format. Any errors here will be passed.
-      if (any(class(Result) %in% c("simpleError","error","condition"))) return(Result)
-      if (!inherits(x = Result, what = "list")) stop("Object returned from FUN was not a list.")
+      if (any(class(Result) %in% c("simpleError","error","condition"))) return(
+        data.table(Iteration = get("iter"), Params, errorMessage = Result$message))
+
+      if (!inherits(x = Result, what = "list")) return(
+        data.table(Iteration = get("iter"), Params, errorMessage = "Object returned from FUN was not a list."))
+
       resLengths <- lengths(Result)
-      if (!any(names(Result) == "Score")) stop("FUN must return list with element 'Score' at a minimum.")
-      if (!is.numeric(Result$Score)) stop("Score returned from FUN was not numeric.")
+      if (!any(names(Result) == "Score")) return(
+        data.table(Iteration = get("iter"), Params, errorMessage = "FUN must return list with element 'Score' at a minimum."))
+
+      if (!is.numeric(Result$Score)) return(
+          data.table(Iteration = get("iter"), Params, errorMessage = "Score returned from FUN was not numeric."))
+
       if(any(resLengths != 1)) {
         badReturns <- names(Result)[which(resLengths != 1)]
-        stop("FUN returned these elements with length > 1: ",paste(badReturns,collapse = ","))
+        return(data.table(Iteration = get("iter"), Params, errorMessage = paste0("FUN returned these elements with length > 1: ",paste(badReturns,collapse = ","))))
       }
 
-      data.table(Params,Elapsed = Elapsed[[3]],as.data.table(Result))
-
+      data.table(Iteration = get("iter"), Params,Elapsed = Elapsed[[3]],as.data.table(Result))
     }
   )[[3]]
   while (sink.number() > 0) sink()
   if (verbose > 0) cat(" ",tm,"seconds\n")
 
+  scoreSummary = optObj$scoreSummary
   # Scan our list for any simpleErrors. If any exist, stop the process and return the errors.
-  se <- which(sapply(scoreSummary,function(cl) any(class(cl) %in% c("simpleError","error","condition"))))
-  if(length(se) > 0) {
-    print(
-      data.table(
-          initGrid[se,]
-        , errorMessage = sapply(scoreSummary[se],function(x) x$message)
-      )
-    )
+  if(any(!is.null(scoreSummary$errorMessage))) {
     stop("Errors encountered in initialization are listed above.")
-  } else {
-    scoreSummary <- rbindlist(scoreSummary)
   }
 
   # Format scoreSummary table. Initial iteration is set to 0
